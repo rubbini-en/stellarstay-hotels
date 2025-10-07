@@ -39,6 +39,25 @@ curl -s -X POST http://localhost:8000/api/reservations \
 curl -s http://localhost:8000/api/reservations/<id>
 ```
 
+## Error taxonomy
+
+- 400 BAD_REQUEST: validation failures (schema violations, invalid date ranges)
+- 404 NOT_FOUND: reservation id not found
+- 409 CONFLICT: overlapping reservation for roomType and given range
+- 5xx: unexpected server errors
+
+Response shape:
+```json
+{ "code": "BAD_REQUEST|NOT_FOUND|CONFLICT", "message": "...", "details": { } }
+```
+
+## Retry and timeout policy
+
+- Outbound adapters (Prisma/DB, Redis, payment) use an exponential backoff with jitter:
+  - retries: 3, baseDelayMs: 200, jitterMs: 100 (configurable in code)
+  - strategy: delay = base * 2^(attempt-1) + jitter
+- Apply request timeouts at the HTTP client/driver where supported (future: add axios/undici timeouts; Prisma relies on driver/network timeouts).
+
 ## Postgres/Prisma (optional)
 
 - Start Docker Desktop, then:
