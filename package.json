@@ -1,0 +1,41 @@
+{
+  "name": "stellarstay-hotels",
+  "version": "1.0.0",
+  "description": "StellarStay Hotels assessment",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "seed": "node prisma/seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rubbini-en/stellarstay-hotels.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/rubbini-en/stellarstay-hotels/issues"
+  },
+  "homepage": "https://github.com/rubbini-en/stellarstay-hotels#readme",
+  "dependencies": {
+    "@prisma/client": "^6.17.0",
+    "axios": "^1.12.2",
+    "fastify": "^5.6.1",
+    "ioredis": "^5.8.1",
+    "pino": "^10.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "eslint": "^9.37.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
+    "prisma": "^6.17.0",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
+  }
+}
