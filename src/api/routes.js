@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { calculatePriceCents } from '../domain/pricing.js';
 import { InMemoryReservationRepo } from '../adapters/db/memory/reservationRepo.js';
+import { getRedis } from '../adapters/cache/redis/redisClient.js';
 
 const postSchema = z.object({
   roomType: z.enum(['junior', 'king', 'presidential']),
@@ -10,6 +11,36 @@ const postSchema = z.object({
   numGuests: z.number().int().positive(),
   includeBreakfast: z.boolean().default(false),
 });
+
+const CACHE_TTL_SEC = 300; // 5 minutes
+
+async function cacheGet(id) {
+  try {
+    const redis = getRedis();
+    const v = await redis.get(`reservation:${id}`);
+    return v ? JSON.parse(v) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheSet(id, value) {
+  try {
+    const redis = getRedis();
+    await redis.setex(`reservation:${id}`, CACHE_TTL_SEC, JSON.stringify(value));
+  } catch {
+    // ignore cache errors
+  }
+}
+
+async function cacheDel(id) {
+  try {
+    const redis = getRedis();
+    await redis.del(`reservation:${id}`);
+  } catch {
+    // ignore cache errors
+  }
+}
 
 export async function registerRoutes(app) {
   app.get('/api/ping', async () => ({ pong: true }));
@@ -26,12 +57,20 @@ export async function registerRoutes(app) {
         const existing = await repo.findByIdempotencyKey(String(idempotencyKey));
         if (existing) return existing;
       }
+      const checkInISO = new Date(input.checkIn).toISOString();
+      const checkOutISO = new Date(input.checkOut).toISOString();
+      const overlap = await repo.hasOverlap(input.roomType, checkInISO, checkOutISO);
+      req.log.info({ roomType: input.roomType, checkInISO, checkOutISO, overlap }, 'overlap_check');
+      if (overlap) {
+        reply.code(409);
+        return { code: 'CONFLICT', message: 'Room type unavailable for given dates' };
+      }
       const pricing = calculatePriceCents(input);
       const reservation = {
         id: randomUUID(),
         roomType: input.roomType,
-        checkIn: new Date(input.checkIn).toISOString(),
-        checkOut: new Date(input.checkOut).toISOString(),
+        checkIn: checkInISO,
+        checkOut: checkOutISO,
         numGuests: input.numGuests,
         includeBreakfast: input.includeBreakfast,
         totalPriceCents: pricing.totalCents,
@@ -39,6 +78,7 @@ export async function registerRoutes(app) {
         idempotencyKey: idempotencyKey ? String(idempotencyKey) : null,
       };
       await repo.create(reservation);
+      await cacheDel(reservation.id);
       reply.code(201);
       return reservation;
     } catch (err) {
@@ -50,11 +90,17 @@ export async function registerRoutes(app) {
 
   app.get('/api/reservations/:id', async (req, reply) => {
     const { id } = req.params;
+
+    const cached = await cacheGet(String(id));
+    if (cached) return cached;
+
     const found = await repo.findById(String(id));
     if (!found) {
       reply.code(404);
       return { code: 'NOT_FOUND', message: 'Reservation not found' };
     }
+
+    await cacheSet(found.id, found);
     return found;
   });
 }
