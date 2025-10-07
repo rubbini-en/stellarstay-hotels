@@ -15,15 +15,15 @@ Primary Port: REST controllers. Secondary Ports: ReservationRepository, RoomAvai
 
 ```mermaid
 graph TD;
-  A[API (Fastify)] --> B[Use Case / Handlers];
-  B --> C[Pricing Engine];
-  B --> D[ReservationRepository Port];
-  D --> E[Prisma Adapter (Postgres)];
-  D --> F[InMemory Adapter];
-  B --> G[CacheProvider Port];
-  G --> H[Redis Adapter];
-  B --> I[PaymentGateway Port];
-  I --> J[Mock Payment];
+  A["API (Fastify)"] --> B["Use Case / Handlers"];
+  B --> C["Pricing Engine"];
+  B --> D["ReservationRepository Port"];
+  D --> E["Prisma Adapter (Postgres)"];
+  D --> F["InMemory Adapter"];
+  B --> G["CacheProvider Port"];
+  G --> H["Redis Adapter"];
+  B --> I["PaymentGateway Port"];
+  I --> J["Mock Payment"];
 ```
 
 ## Communication
