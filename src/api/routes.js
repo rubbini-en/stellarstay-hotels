@@ -45,9 +45,11 @@ async function cacheDel(id) {
 export async function registerRoutes(app) {
   app.get('/api/ping', async () => ({ pong: true }));
 
-  // Force in-memory repository to avoid Postgres dependency during local run
-  const repo = InMemoryReservationRepo;
-  app.log.info({ repoType: 'memory' }, 'reservation_repo_selected');
+  // Choose repository based on environment
+  const repo = process.env.USE_PRISMA === '1' 
+    ? (await import('../adapters/db/prisma/reservationRepo.js')).PrismaReservationRepo
+    : InMemoryReservationRepo;
+  app.log.info({ repoType: process.env.USE_PRISMA === '1' ? 'prisma' : 'memory' }, 'reservation_repo_selected');
 
   app.post('/api/reservations', async (req, reply) => {
     const idempotencyKey = req.headers['idempotency-key'];
