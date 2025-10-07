@@ -2,6 +2,16 @@
 
 Production-style slice for the assessment using Hexagonal Architecture and Option B endpoints.
 
+## Overview
+StellarStay Hotels is a scalable reservation management system designed to handle 50,000+ daily bookings. This implementation showcases hexagonal architecture, dynamic pricing with business rules, idempotent operations, and reliability patterns including exponential backoff retry.
+
+**Key Features:**
+- Dynamic pricing (base rates, weekend surcharge, length discounts, breakfast)
+- Idempotent reservation creation (idempotency-key)
+- Exponential backoff retry for outbound calls
+- Availability conflict detection (409)
+- Request correlation tracking (X-Correlation-Id)
+
 ## Quick Start
 
 ```bash
@@ -79,13 +89,51 @@ USE_PRISMA=1 npm run dev
 - Health endpoint `/health`.
 - Correlation IDs: send `X-Correlation-Id` (echoed back and logged).
 
-## Runbook
+## Design Decisions & Trade-offs
 
-- Tests: `npm test`
-- Start (in-memory): `npm run dev`
-- Start (Prisma): `USE_PRISMA=1 npm run dev`
-- Seed DB: `npm run seed`
-- Compose (DB/Redis): `docker-compose up -d`
+- Simplifications for assessment scope:
+  - Room availability check is in-memory; production would need distributed locking/DB-level constraints per physical room.
+  - Payment gateway is mocked; real integration would include circuit breaker and idempotent payment tokens.
+  - Single service slice; additional services (notifications, search) omitted for focus.
+- Retry Policy:
+  - Max 3 retries with exponential backoff (base 200ms) + jitter (100ms).
+  - Applied to: database repository; easy to extend to Redis/payment clients.
+
+## Test Coverage
+
+```bash
+npm test
+# Example output
+# Test Files  3 passed (3)
+# Tests      13 passed (13)
+```
+
+## Quick Validation
+
+1) Health:
+```bash
+curl http://localhost:8000/health
+```
+2) Create reservation:
+```bash
+curl -s -X POST http://localhost:8000/api/reservations \
+  -H 'Content-Type: application/json' -H 'idempotency-key: demo-1' \
+  -d '{"roomType":"junior","checkIn":"2024-01-16","checkOut":"2024-01-18","numGuests":2,"includeBreakfast":false}' | jq .
+```
+3) Retrieve reservation:
+```bash
+curl -s http://localhost:8000/api/reservations/<id> | jq .
+```
+4) Idempotency:
+```bash
+# Re-run step 2 with the same idempotency key; expect 200/same ID
+```
+
+## Performance Considerations
+
+- Stateless API enables horizontal scaling.
+- Redis ready for read caching; TTL-based invalidation.
+- Postgres path tested via Prisma; enable connection pooling and proper indexes in production.
 
 ## Troubleshooting
 
