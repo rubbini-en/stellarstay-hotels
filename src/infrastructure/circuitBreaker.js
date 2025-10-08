@@ -1,11 +1,4 @@
-/**
- * Circuit Breaker implementation for reliability patterns
- * 
- * States:
- * - CLOSED: Normal operation, requests pass through
- * - OPEN: Circuit is open, requests fail fast
- * - HALF_OPEN: Testing if service has recovered
- */
+// Circuit breaker for reliability patterns
 
 export class CircuitBreaker {
   constructor({ 
@@ -77,7 +70,7 @@ export class CircuitBreaker {
   }
 }
 
-// Pre-configured circuit breakers for different services
+// Pre-configured circuit breakers
 export const prismaBreaker = new CircuitBreaker({
   name: 'prisma',
   threshold: 3,

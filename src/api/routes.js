@@ -98,7 +98,7 @@ export async function registerRoutes(app) {
         reply.code(201);
         return reservation;
       } catch (err) {
-        // Handle Prisma unique constraint violation for idempotency key
+        // Handle idempotency key race condition
         if (err.code === 'P2002' && err.meta?.target?.includes('idempotencyKey')) {
           req.log.info({ idempotencyKey }, 'idempotency_key_race_detected');
           // Race condition: key was used between check and insert
@@ -139,11 +139,11 @@ export async function registerRoutes(app) {
       const input = aiQuerySchema.parse(req.body);
       req.log.info({ query: input.query }, 'ai_query_received');
 
-      // Parse the natural language query
+      // Parse query
       const intent = await parseRoomQuery(input.query);
       req.log.info({ intent }, 'ai_intent_parsed');
 
-      // Generate room recommendations based on intent
+      // Generate recommendations
       const recommendations = generateRoomRecommendations(intent);
 
       return {

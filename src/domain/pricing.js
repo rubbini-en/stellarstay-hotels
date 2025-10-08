@@ -2,7 +2,7 @@ export const ROOM_BASE_RATES = { junior: 60, king: 90, presidential: 150 };
 
 function parseUtcYmd(input) {
   if (input instanceof Date) return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
-  // If string like YYYY-MM-DD, construct UTC midnight
+  // Parse YYYY-MM-DD string to UTC midnight
   if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
     const [y, m, d] = input.split('-').map(Number);
     return new Date(Date.UTC(y, m - 1, d));
@@ -43,7 +43,7 @@ export function calculatePriceCents({ roomType, checkIn, checkOut, numGuests, in
     const breakfastCents = includeBreakfast ? 5 * 100 * numGuests : 0;
     const dayCents = dayPrice * 100 + breakfastCents;
 
-    // Format date as YYYY-MM-DD from UTC components
+    // Format date as YYYY-MM-DD
     const y = day.getUTCFullYear();
     const m = String(day.getUTCMonth() + 1).padStart(2, '0');
     const d = String(day.getUTCDate()).padStart(2, '0');

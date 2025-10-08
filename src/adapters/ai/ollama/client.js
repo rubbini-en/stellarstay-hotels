@@ -4,9 +4,7 @@ import { externalApiBreaker } from '../../../infrastructure/circuitBreaker.js';
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:1b';
 
-/**
- * Parse natural language query to extract booking intent
- */
+// Parse natural language query to extract booking intent
 export async function parseRoomQuery(query) {
   const prompt = `Return ONLY valid JSON. Extract from "${query}": {"roomType": "junior|king|presidential|null", "maxPriceDollars": number|null, "numGuests": number|null, "checkIn": "YYYY-MM-DD"|null, "checkOut": "YYYY-MM-DD"|null}`;
 
@@ -29,7 +27,7 @@ export async function parseRoomQuery(query) {
       });
     });
 
-    // Extract JSON from response (handle markdown code blocks)
+    // Extract JSON from response
     const responseText = response.data.response;
     let jsonMatch = responseText.match(/```[\s\S]*?(\{[\s\S]*?\})[\s\S]*?```/);
     
@@ -43,7 +41,7 @@ export async function parseRoomQuery(query) {
 
     const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
     
-    // Validate and sanitize the response
+    // Sanitize response
     return {
       roomType: ['junior', 'king', 'presidential'].includes(parsed.roomType) ? parsed.roomType : null,
       maxPriceDollars: typeof parsed.maxPriceDollars === 'number' ? parsed.maxPriceDollars : null,
@@ -71,10 +69,10 @@ export function generateRoomRecommendations(intent) {
 
   const recommendations = Object.entries(ROOM_BASE_RATES)
     .filter(([type, price]) => {
-      // Filter by room type if specified
+      // Filter by room type
       if (intent.roomType && type !== intent.roomType) return false;
       
-      // Filter by max price if specified
+      // Filter by max price
       if (intent.maxPriceDollars && price > intent.maxPriceDollars) return false;
       
       return true;
@@ -83,7 +81,7 @@ export function generateRoomRecommendations(intent) {
       type,
       basePriceDollars: basePrice,
       description: getRoomDescription(type),
-      available: true, // In a real system, this would check actual availability
+      available: true,
       features: getRoomFeatures(type)
     }))
     .sort((a, b) => a.basePriceDollars - b.basePriceDollars);

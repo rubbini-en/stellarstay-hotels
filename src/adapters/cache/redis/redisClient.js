@@ -15,7 +15,7 @@ export function getRedis() {
       maxRetriesPerRequest: 2,
     });
     
-    // Handle Redis connection errors gracefully
+    // Handle Redis connection errors
     redisSingleton.on('error', (err) => {
       console.error('Redis connection error:', err.message);
     });
