@@ -1,6 +1,6 @@
 # StellarStay Hotels
 
-[![Test Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](https://github.com/rubbini-en/stellarstay-hotels)
+[![Test Coverage](https://img.shields.io/badge/coverage-49%25-yellow)](https://github.com/rubbini-en/stellarstay-hotels) [![Tests](https://img.shields.io/badge/tests-13%20passed-brightgreen)](https://github.com/rubbini-en/stellarstay-hotels)
 
 Production-style slice for the assessment using Hexagonal Architecture and Option B endpoints.
 
@@ -26,6 +26,12 @@ npm test
 
 # Run tests with coverage report
 npm run test:coverage
+
+# Coverage breakdown:
+# - Domain logic (pricing): 93% coverage
+# - API routes: 71% coverage  
+# - Cache adapters: 96% coverage
+# - Overall: 49% (includes untested adapters like Prisma, AI client)
 
 # Start API (in-memory repo by default)
 npm run dev
@@ -129,6 +135,12 @@ ollama serve
 
 The AI endpoint will work without Ollama but will return error responses. With Ollama running, it provides intelligent room recommendations based on natural language queries.
 
+**Troubleshooting AI Endpoint:**
+- **500 AI_SERVICE_ERROR**: Ensure Ollama is running (`ollama serve`)
+- **Timeout errors**: Verify model is pulled (`ollama list` should show `llama3.2:1b`)
+- **Circuit breaker open**: Check logs for "Circuit breaker is OPEN" messages
+- **Connection refused**: Verify Ollama is accessible at `http://localhost:11434`
+
 ## Modes
 
 - In-memory repo (default): fastest for local dev and tests; no external deps.
@@ -140,6 +152,7 @@ Enable Prisma mode:
 docker-compose up -d postgres redis
 cp .env.example .env
 npx prisma migrate deploy
+# Note: The overlap constraint migration requires PostgreSQL 9.2+ with btree_gist extension
 npm run seed
 USE_PRISMA=1 npm run dev
 ```
