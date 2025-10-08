@@ -281,7 +281,7 @@ curl -s -X POST http://localhost:8000/api/reservations \
 
 ## Performance Notes
 
-The API is stateless so it can scale horizontally. Redis caching helps with read performance, and I've tested the PostgreSQL path with Prisma. For production, you'd want to add connection pooling and proper database indexes.
+The API is stateless so it can scale horizontally. Redis caching helps with read performance, and the PostgreSQL path has been tested with Prisma. For production, connection pooling and proper database indexes would be beneficial.
 
 ## Troubleshooting
 

@@ -1,6 +1,5 @@
 /**
- * Port interface for payment gateway
- * Defines the contract that all payment gateway implementations must follow
+ * Payment gateway interface
  */
 
 export class PaymentGateway {

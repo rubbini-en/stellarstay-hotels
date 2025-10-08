@@ -30,7 +30,7 @@ Format: {"roomType": "junior"|"king"|"presidential"|null, "maxPriceDollars": num
       });
     });
 
-    // More robust JSON extraction
+    // Try to extract JSON from response
     const responseText = response.data.response;
     let parsed;
     

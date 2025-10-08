@@ -1,6 +1,5 @@
 /**
- * Port interface for reservation repository
- * Defines the contract that all reservation repository implementations must follow
+ * Reservation repository interface
  */
 
 export class ReservationRepository {

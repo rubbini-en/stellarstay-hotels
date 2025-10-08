@@ -1,6 +1,5 @@
 /**
- * Port interface for cache provider
- * Defines the contract that all cache implementations must follow
+ * Cache provider interface
  */
 
 export class CacheProvider {
