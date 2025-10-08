@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { calculatePriceCents } from '../domain/pricing.js';
 import { InMemoryReservationRepo } from '../adapters/db/memory/reservationRepo.js';
 import { getRedis } from '../adapters/cache/redis/redisClient.js';
+import { redisBreaker } from '../infrastructure/circuitBreaker.js';
+import { parseRoomQuery, generateRoomRecommendations } from '../adapters/ai/ollama/client.js';
 
 const postSchema = z.object({
   roomType: z.enum(['junior', 'king', 'presidential']),
@@ -12,12 +14,18 @@ const postSchema = z.object({
   includeBreakfast: z.boolean().default(false),
 });
 
+const aiQuerySchema = z.object({
+  query: z.string().min(1).max(500),
+});
+
 const CACHE_TTL_SEC = 300; // 5 minutes
 
 async function cacheGet(id) {
   try {
     const redis = getRedis();
-    const v = await redis.get(`reservation:${id}`);
+    const v = await redisBreaker.execute(async () => {
+      return await redis.get(`reservation:${id}`);
+    });
     return v ? JSON.parse(v) : null;
   } catch {
     return null;
@@ -27,7 +35,9 @@ async function cacheGet(id) {
 async function cacheSet(id, value) {
   try {
     const redis = getRedis();
-    await redis.setex(`reservation:${id}`, CACHE_TTL_SEC, JSON.stringify(value));
+    await redisBreaker.execute(async () => {
+      return await redis.setex(`reservation:${id}`, CACHE_TTL_SEC, JSON.stringify(value));
+    });
   } catch {
     // ignore cache errors
   }
@@ -36,7 +46,9 @@ async function cacheSet(id, value) {
 async function cacheDel(id) {
   try {
     const redis = getRedis();
-    await redis.del(`reservation:${id}`);
+    await redisBreaker.execute(async () => {
+      return await redis.del(`reservation:${id}`);
+    });
   } catch {
     // ignore cache errors
   }
@@ -79,10 +91,25 @@ export async function registerRoutes(app) {
         pricingBreakdown: pricing,
         idempotencyKey: idempotencyKey ? String(idempotencyKey) : null,
       };
-      await repo.create(reservation);
-      await cacheDel(reservation.id);
-      reply.code(201);
-      return reservation;
+      
+      try {
+        await repo.create(reservation);
+        await cacheDel(reservation.id);
+        reply.code(201);
+        return reservation;
+      } catch (err) {
+        // Handle Prisma unique constraint violation for idempotency key
+        if (err.code === 'P2002' && err.meta?.target?.includes('idempotencyKey')) {
+          req.log.info({ idempotencyKey }, 'idempotency_key_race_detected');
+          // Race condition: key was used between check and insert
+          const existing = await repo.findByIdempotencyKey(String(idempotencyKey));
+          if (existing) {
+            reply.code(200);
+            return existing;
+          }
+        }
+        throw err;
+      }
     } catch (err) {
       app.log.error({ err, repoType: 'memory' }, 'create_reservation_failed');
       reply.code(400);
@@ -104,5 +131,37 @@ export async function registerRoutes(app) {
 
     await cacheSet(found.id, found);
     return found;
+  });
+
+  // AI-powered room query endpoint (BONUS)
+  app.post('/api/ai/query', async (req, reply) => {
+    try {
+      const input = aiQuerySchema.parse(req.body);
+      req.log.info({ query: input.query }, 'ai_query_received');
+
+      // Parse the natural language query
+      const intent = await parseRoomQuery(input.query);
+      req.log.info({ intent }, 'ai_intent_parsed');
+
+      // Generate room recommendations based on intent
+      const recommendations = generateRoomRecommendations(intent);
+
+      return {
+        query: input.query,
+        intent,
+        recommendations,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      req.log.error({ err, query: req.body?.query }, 'ai_query_failed');
+      
+      if (err.name === 'ZodError') {
+        reply.code(400);
+        return { code: 'BAD_REQUEST', message: 'Invalid query format' };
+      }
+      
+      reply.code(500);
+      return { code: 'AI_SERVICE_ERROR', message: err.message };
+    }
   });
 }

@@ -49,6 +49,13 @@ curl -s -X POST http://localhost:8000/api/reservations \
 curl -s http://localhost:8000/api/reservations/<id> | jq .
 ```
 
+- POST `/api/ai/query` (AI-powered room search - BONUS)
+```bash
+curl -s -X POST http://localhost:8000/api/ai/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "I need a king suite for 2 guests under $300 per night from Jan 15-17"}' | jq .
+```
+
 ### Error taxonomy
 
 - 400 BAD_REQUEST: validation failures (schema violations, invalid date ranges)
@@ -76,6 +83,16 @@ npm run seed
 USE_PRISMA=1 npm run dev
 ```
 
+Enable AI endpoint (BONUS):
+```bash
+# Install Ollama and pull model
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull llama3.2:3b
+ollama serve
+
+# AI endpoint will be available at POST /api/ai/query
+```
+
 ## Caching
 
 - Cache-aside for GET `/api/reservations/{id}` using Redis with a 5‑minute TTL.
@@ -84,8 +101,11 @@ USE_PRISMA=1 npm run dev
 
 ## Reliability
 
-- Idempotency on POST via `idempotency-key` header (safe retries return prior result).
-- Retry/backoff (exponential + jitter, 3 attempts) for Prisma repository calls.
+- **Idempotency on POST** via `idempotency-key` header (safe retries return prior result with race condition handling).
+- **Retry/backoff** (exponential + jitter, 3 attempts) for Prisma repository calls.
+- **Circuit breakers** for Prisma (3 failures, 30s reset) and Redis (5 failures, 15s reset).
+- **Explicit timeouts**: Request 8s, DB 3s, Redis 500ms, External APIs 5s.
+- **DB-level conflict safety** with exclusion constraints preventing overlapping reservations.
 - Health endpoint `/health`.
 - Correlation IDs: send `X-Correlation-Id` (echoed back and logged).
 

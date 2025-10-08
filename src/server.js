@@ -5,7 +5,11 @@ import { correlationIdPlugin } from './api/correlation.js';
 const port = process.env.PORT ? Number(process.env.PORT) : 8000;
 
 export async function buildServer() {
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL || 'info' } });
+  const app = Fastify({ 
+    logger: { level: process.env.LOG_LEVEL || 'info' },
+    requestTimeout: 8000, // 8s request timeout
+    keepAliveTimeout: 5000, // 5s keep-alive
+  });
 
   app.register(correlationIdPlugin);
   app.get('/health', async () => ({ status: 'ok' }));

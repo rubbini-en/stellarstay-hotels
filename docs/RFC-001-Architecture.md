@@ -37,13 +37,14 @@ graph TD;
 - Consistency: strong for reservations; store pricing breakdown for audit.
 
 ## Reliability & Observability
-- Retry/backoff: outbound ports use exponential backoff with jitter (retries=3, base=200ms).
-- Timeouts: enforced at HTTP/client layers (extend to axios/undici; Prisma relies on driver timeouts).
-- Availability check: overlap detection per roomType returning 409.
-- Idempotency on POST: duplicate keys return prior result.
-- Health: `/health`; add readiness checks for DB/Redis when enabled.
-- Logging: structured with correlation IDs (`X-Correlation-Id`).
-- Metrics (future): add Prometheus counters/histograms for request count/latency and errors.
+- **Retry/backoff**: outbound ports use exponential backoff with jitter (retries=3, base=200ms).
+- **Timeouts**: Request 8s, DB 3s, Redis 500ms, External APIs 5s.
+- **Circuit breakers**: Prisma (3 failures, 30s reset), Redis (5 failures, 15s reset).
+- **Availability check**: overlap detection per roomType returning 409 with DB-level exclusion constraints.
+- **Idempotency on POST**: duplicate keys return prior result with race condition handling.
+- **Health**: `/health`; add readiness checks for DB/Redis when enabled.
+- **Logging**: structured with correlation IDs (`X-Correlation-Id`).
+- **Metrics (future)**: add Prometheus counters/histograms for request count/latency and errors.
 
 ### Retry Implementation Example
 ```javascript
@@ -52,6 +53,17 @@ const result = await withRetry(
   () => prisma.reservation.create({ data: { ... } }),
   { retries: 3, baseDelayMs: 200, jitterMs: 100 }
 );
+```
+
+### Circuit Breaker Implementation Example
+```javascript
+// Wraps all external service calls
+const result = await prismaBreaker.execute(async () => {
+  return await withRetry(
+    () => prisma.reservation.create({ data: { ... } }),
+    { retries: 3, baseDelayMs: 200, jitterMs: 100 }
+  );
+});
 ```
 
 ## Scalability
@@ -77,6 +89,13 @@ const result = await withRetry(
 - 404 NOT_FOUND (reservation id missing)
 - 409 CONFLICT (overlap detected)
 - 5xx internal/unexpected errors
+
+## AI Integration (Bonus)
+- **POST /api/ai/query**: Natural language room search using Ollama
+- **Intent parsing**: Extracts room type, dates, price range, guest count
+- **Room recommendations**: Filtered suggestions based on parsed intent
+- **Circuit breaker protection**: External API calls wrapped with failure handling
+- **Fallback behavior**: Graceful degradation when AI service unavailable
 
 ## Future Work
 - Payment gateway integration with retries + circuit breaker.
