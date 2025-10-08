@@ -2,7 +2,7 @@ import axios from 'axios';
 import { externalApiBreaker } from '../../../infrastructure/circuitBreaker.js';
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:1b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
 
 // Parse natural language query to extract booking intent
 export async function parseRoomQuery(query) {
