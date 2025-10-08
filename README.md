@@ -237,6 +237,26 @@ npm test
 
 All 13 tests pass, covering the main business logic and edge cases.
 
+## Demo Script
+
+Run the comprehensive demo to see all features in action:
+
+```bash
+# Start the server
+npm run dev
+
+# In another terminal, run the demo
+./demo.sh
+```
+
+The demo script showcases:
+- All API endpoints with real examples
+- Dynamic pricing (weekend surcharge, length discounts, breakfast)
+- Idempotency and conflict detection
+- AI-powered natural language queries
+- Error handling and validation
+- Performance characteristics
+
 ## Try It Out
 
 Here are some quick commands to test the API:
