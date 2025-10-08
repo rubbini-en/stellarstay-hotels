@@ -66,6 +66,18 @@ const result = await prismaBreaker.execute(async () => {
 });
 ```
 
+### Timeout Configuration
+```javascript
+// src/server.js
+Request:      8000ms  (requestTimeout in Fastify)
+// src/adapters/db/prisma/client.js  
+Database:     3000ms  (connect_timeout, pool_timeout, socket_timeout)
+// src/adapters/cache/redis/redisClient.js
+Redis:        500ms   (connectTimeout, commandTimeout)
+// src/adapters/ai/ollama/client.js
+External API: 5000ms  (axios timeout)
+```
+
 ## Scalability
 - Stateless API; horizontal scaling behind a load balancer.
 - Caching with Redis for hot GETs; TTL-based invalidation on create.

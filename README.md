@@ -49,13 +49,6 @@ curl -s -X POST http://localhost:8000/api/reservations \
 curl -s http://localhost:8000/api/reservations/<id> | jq .
 ```
 
-- POST `/api/ai/query` (AI-powered room search - BONUS)
-```bash
-curl -s -X POST http://localhost:8000/api/ai/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "I need a king suite for 2 guests under $300 per night from Jan 15-17"}' | jq .
-```
-
 ### Error taxonomy
 
 - 400 BAD_REQUEST: validation failures (schema violations, invalid date ranges)
@@ -67,6 +60,51 @@ Response shape:
 ```json
 { "code": "BAD_REQUEST|NOT_FOUND|CONFLICT", "message": "...", "details": { } }
 ```
+
+## AI-Powered Room Search (BONUS)
+
+Natural language query parsing using Ollama for intelligent room recommendations.
+
+### Setup
+```bash
+# Install Ollama and pull model
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull llama3.2:3b
+ollama serve
+
+# AI endpoint will be available at POST /api/ai/query
+```
+
+### Usage
+```bash
+curl -s -X POST http://localhost:8000/api/ai/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "I need a king suite for 2 guests under $300 per night from Jan 15-17"}' | jq .
+```
+
+### Response
+```json
+{
+  "query": "I need a king suite...",
+  "intent": {
+    "roomType": "king",
+    "maxPriceDollars": 300,
+    "numGuests": 2,
+    "checkIn": "2025-01-15",
+    "checkOut": "2025-01-17"
+  },
+  "recommendations": [
+    {
+      "type": "king",
+      "basePriceDollars": 250,
+      "description": "Spacious suite with king bed and premium amenities",
+      "features": ["King bed", "Living area", "Premium amenities", "Room service"]
+    }
+  ]
+}
+```
+
+**Implementation**: `src/adapters/ai/ollama/client.js` with circuit breaker protection.
 
 ## Modes
 
@@ -83,16 +121,6 @@ npm run seed
 USE_PRISMA=1 npm run dev
 ```
 
-Enable AI endpoint (BONUS):
-```bash
-# Install Ollama and pull model
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2:3b
-ollama serve
-
-# AI endpoint will be available at POST /api/ai/query
-```
-
 ## Caching
 
 - Cache-aside for GET `/api/reservations/{id}` using Redis with a 5‑minute TTL.
@@ -101,13 +129,55 @@ ollama serve
 
 ## Reliability
 
-- **Idempotency on POST** via `idempotency-key` header (safe retries return prior result with race condition handling).
-- **Retry/backoff** (exponential + jitter, 3 attempts) for Prisma repository calls.
-- **Circuit breakers** for Prisma (3 failures, 30s reset) and Redis (5 failures, 15s reset).
-- **Explicit timeouts**: Request 8s, DB 3s, Redis 500ms, External APIs 5s.
-- **DB-level conflict safety** with exclusion constraints preventing overlapping reservations.
-- Health endpoint `/health`.
-- Correlation IDs: send `X-Correlation-Id` (echoed back and logged).
+### Idempotency
+- **Implementation**: `idempotency-key` header on POST requests
+- **Storage**: Unique constraint in database (`idempotencyKey` field)
+- **Race handling**: Catches Prisma P2002 error and returns existing reservation
+- **Code**: `src/api/routes.js:47-68`
+
+### Retry Policy with Exponential Backoff
+- **Strategy**: Exponential backoff with jitter
+- **Configuration**: 3 retries, 200ms base delay, 100ms jitter
+- **Applied to**: Prisma repository operations
+- **Implementation**: `src/domain/retry.js`
+- **Example**: `await withRetry(() => prisma.reservation.create({...}), { retries: 3, baseDelayMs: 200, jitterMs: 100 })`
+
+### Circuit Breakers
+Prevents cascade failures by failing fast when downstream services are unhealthy.
+
+**Configuration:**
+```javascript
+// src/infrastructure/circuitBreaker.js
+Prisma:       threshold=3 failures, timeout=5s, reset=30s
+Redis:        threshold=5 failures, timeout=2s, reset=15s  
+External API: threshold=3 failures, timeout=10s, reset=60s
+States: CLOSED (normal) → OPEN (failing fast) → HALF_OPEN (testing recovery)
+```
+
+### Explicit Timeouts
+```javascript
+// src/server.js
+Request:      8000ms  (requestTimeout in Fastify)
+// src/adapters/db/prisma/client.js  
+Database:     3000ms  (connect_timeout, pool_timeout, socket_timeout)
+// src/adapters/cache/redis/redisClient.js
+Redis:        500ms   (connectTimeout, commandTimeout)
+// src/adapters/ai/ollama/client.js
+External API: 5000ms  (axios timeout)
+```
+
+### Concurrency Safety
+Double-booking prevention:
+- **Database constraint**: PostgreSQL exclusion constraint on (roomType, tsrange(checkIn, checkOut))
+- **Migration**: `prisma/migrations/20241008_add_overlap_constraint/migration.sql`
+- **Application check**: `repo.hasOverlap()` before reservation creation
+- **Idempotency**: Unique constraint on `idempotencyKey` prevents duplicate submissions
+
+### Observability
+- **Logger**: Pino structured logging (`src/server.js:5`)
+- **Correlation IDs**: `X-Correlation-Id` header echoed and logged in all requests (`src/api/correlation.js`)
+- **Health endpoint**: `GET /health` returns `{"status": "ok"}`
+- **Log fields**: `correlationId`, `roomType`, `overlap`, `repoType`, `errors`
 
 ## Design Decisions & Trade-offs
 
@@ -126,7 +196,6 @@ npm test
 # Example output
 # Test Files  3 passed (3)
 # Tests      13 passed (13)
-# Coverage: ~85% (domain: 95%, adapters: 75%, API: 90%)
 ```
 
 ## Quick Validation
@@ -149,12 +218,6 @@ curl -s http://localhost:8000/api/reservations/<id> | jq .
 ```bash
 # Re-run step 2 with the same idempotency key; expect 200/same ID
 ```
-
-## Performance Benchmarks (Local Testing)
-
-- POST /api/reservations: ~5ms (in-memory), ~15ms (Prisma)
-- GET /api/reservations/:id: ~1ms (cached), ~8ms (uncached)
-- Health endpoint: ~1ms
 
 ## Performance Considerations
 
