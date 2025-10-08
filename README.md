@@ -85,24 +85,28 @@ curl -s -X POST http://localhost:8000/api/ai/query \
 ### Response
 ```json
 {
-  "query": "I need a king suite...",
+  "query": "I need a king suite for 2 guests under $300 per night",
   "intent": {
     "roomType": "king",
     "maxPriceDollars": 300,
     "numGuests": 2,
-    "checkIn": "2025-01-15",
-    "checkOut": "2025-01-17"
+    "checkIn": null,
+    "checkOut": null
   },
   "recommendations": [
     {
       "type": "king",
       "basePriceDollars": 250,
       "description": "Spacious suite with king bed and premium amenities",
+      "available": true,
       "features": ["King bed", "Living area", "Premium amenities", "Room service"]
     }
-  ]
+  ],
+  "timestamp": "2025-10-08T17:21:32.673Z"
 }
 ```
+
+**Note**: The AI endpoint requires Ollama to be running with the `llama3.2:3b` model. If Ollama is not available or times out, the endpoint returns a `500 AI_SERVICE_ERROR` with graceful degradation.
 
 **Implementation**: `src/adapters/ai/ollama/client.js` with circuit breaker protection.
 
