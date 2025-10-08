@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "seed": "node prisma/seed.js"
   },
   "repository": {

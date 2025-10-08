@@ -1,5 +1,7 @@
 # StellarStay Hotels
 
+[![Test Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](https://github.com/rubbini-en/stellarstay-hotels)
+
 Production-style slice for the assessment using Hexagonal Architecture and Option B endpoints.
 
 ## Overview
@@ -21,6 +23,9 @@ npm ci
 
 # Run unit + API tests
 npm test
+
+# Run tests with coverage report
+npm run test:coverage
 
 # Start API (in-memory repo by default)
 npm run dev
@@ -252,4 +257,5 @@ curl -s http://localhost:8000/api/reservations/<id> | jq .
 ## Documentation
 
 - Architecture RFC: `docs/RFC-001-Architecture.md` (includes reliability details and diagram).
+- OpenAPI Specification: `openapi.yml` (complete API documentation with request/response schemas).
 - Pricing rules covered and tested (base, length discount, weekend +25%, breakfast per guest/day).

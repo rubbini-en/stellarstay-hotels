@@ -14,6 +14,15 @@ export function getRedis() {
       enableReadyCheck: false,
       maxRetriesPerRequest: 2,
     });
+    
+    // Handle Redis connection errors gracefully
+    redisSingleton.on('error', (err) => {
+      console.error('Redis connection error:', err.message);
+    });
+    
+    redisSingleton.on('connect', () => {
+      console.log('Redis connected successfully');
+    });
   }
   return redisSingleton;
 }
