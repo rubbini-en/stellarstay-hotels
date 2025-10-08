@@ -45,6 +45,15 @@ graph TD;
 - Logging: structured with correlation IDs (`X-Correlation-Id`).
 - Metrics (future): add Prometheus counters/histograms for request count/latency and errors.
 
+### Retry Implementation Example
+```javascript
+// Applied to all Prisma queries
+const result = await withRetry(
+  () => prisma.reservation.create({ data: { ... } }),
+  { retries: 3, baseDelayMs: 200, jitterMs: 100 }
+);
+```
+
 ## Scalability
 - Stateless API; horizontal scaling behind a load balancer.
 - Caching with Redis for hot GETs; TTL-based invalidation on create.
