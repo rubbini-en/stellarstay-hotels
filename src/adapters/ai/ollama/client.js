@@ -2,24 +2,13 @@ import axios from 'axios';
 import { externalApiBreaker } from '../../../infrastructure/circuitBreaker.js';
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:1b';
 
 /**
  * Parse natural language query to extract booking intent
  */
 export async function parseRoomQuery(query) {
-  const prompt = `You are a hotel booking assistant. Extract booking details from this query: "${query}"
-
-Return ONLY valid JSON with these exact fields:
-{
-  "roomType": "junior" | "king" | "presidential" | null,
-  "maxPriceDollars": number | null,
-  "numGuests": number | null,
-  "checkIn": "YYYY-MM-DD" | null,
-  "checkOut": "YYYY-MM-DD" | null
-}
-
-If a field cannot be determined from the query, use null.`;
+  const prompt = `Return ONLY valid JSON. Extract from "${query}": {"roomType": "junior|king|presidential|null", "maxPriceDollars": number|null, "numGuests": number|null, "checkIn": "YYYY-MM-DD"|null, "checkOut": "YYYY-MM-DD"|null}`;
 
   try {
     const response = await externalApiBreaker.execute(async () => {
@@ -33,22 +22,26 @@ If a field cannot be determined from the query, use null.`;
           max_tokens: 200
         }
       }, { 
-        timeout: 5000,
+        timeout: 10000,
         headers: {
           'Content-Type': 'application/json'
         }
       });
     });
 
-    // Extract JSON from response
+    // Extract JSON from response (handle markdown code blocks)
     const responseText = response.data.response;
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    let jsonMatch = responseText.match(/```[\s\S]*?(\{[\s\S]*?\})[\s\S]*?```/);
+    
+    if (!jsonMatch) {
+      jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    }
     
     if (!jsonMatch) {
       throw new Error('No valid JSON found in response');
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
     
     // Validate and sanitize the response
     return {

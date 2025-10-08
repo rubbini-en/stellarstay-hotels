@@ -7,3 +7,4 @@ EXCLUDE USING GIST (
   "roomType" WITH =,
   tsrange("checkIn", "checkOut") WITH &&
 );
+
