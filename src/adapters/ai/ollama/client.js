@@ -6,7 +6,9 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2:3b';
 
 // Parse natural language query to extract booking intent
 export async function parseRoomQuery(query) {
-  const prompt = `Return ONLY valid JSON. Extract from "${query}": {"roomType": "junior|king|presidential|null", "maxPriceDollars": number|null, "numGuests": number|null, "checkIn": "YYYY-MM-DD"|null, "checkOut": "YYYY-MM-DD"|null}`;
+  const prompt = `You must respond with ONLY a valid JSON object, no markdown formatting.
+Extract booking intent from: "${query}"
+Format: {"roomType": "junior"|"king"|"presidential"|null, "maxPriceDollars": number|null, "numGuests": number|null, "checkIn": "YYYY-MM-DD"|null, "checkOut": "YYYY-MM-DD"|null}`;
 
   try {
     const response = await externalApiBreaker.execute(async () => {
@@ -14,6 +16,7 @@ export async function parseRoomQuery(query) {
         model: OLLAMA_MODEL,
         prompt,
         stream: false,
+        format: "json", // Request JSON format explicitly
         options: { 
           temperature: 0.1,
           top_p: 0.9,
@@ -27,34 +30,55 @@ export async function parseRoomQuery(query) {
       });
     });
 
-    // Extract JSON from response
+    // More robust JSON extraction
     const responseText = response.data.response;
-    let jsonMatch = responseText.match(/```[\s\S]*?(\{[\s\S]*?\})[\s\S]*?```/);
+    let parsed;
     
-    if (!jsonMatch) {
-      jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    }
-    
-    if (!jsonMatch) {
-      throw new Error('No valid JSON found in response');
-    }
+    try {
+      // Try direct parsing first
+      parsed = JSON.parse(responseText);
+    } catch {
+      // Fallback to regex extraction
+      let jsonMatch = responseText.match(/```[\s\S]*?(\{[\s\S]*?\})[\s\S]*?```/);
+      
+      if (!jsonMatch) {
+        jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      }
+      
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in response');
+      }
 
-    const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+    }
     
-    // Sanitize response
-    return {
-      roomType: ['junior', 'king', 'presidential'].includes(parsed.roomType) ? parsed.roomType : null,
-      maxPriceDollars: typeof parsed.maxPriceDollars === 'number' ? parsed.maxPriceDollars : null,
-      numGuests: typeof parsed.numGuests === 'number' && parsed.numGuests > 0 ? parsed.numGuests : null,
-      checkIn: parsed.checkIn && /^\d{4}-\d{2}-\d{2}$/.test(parsed.checkIn) ? parsed.checkIn : null,
-      checkOut: parsed.checkOut && /^\d{4}-\d{2}-\d{2}$/.test(parsed.checkOut) ? parsed.checkOut : null,
-    };
+    return validateAndSanitize(parsed);
   } catch (error) {
     if (error.code === 'CIRCUIT_BREAKER_OPEN') {
       throw new Error('AI service temporarily unavailable');
     }
     throw new Error(`Failed to parse query: ${error.message}`);
   }
+}
+
+function validateAndSanitize(parsed) {
+  return {
+    roomType: ['junior', 'king', 'presidential'].includes(parsed.roomType) 
+      ? parsed.roomType 
+      : null,
+    maxPriceDollars: typeof parsed.maxPriceDollars === 'number' && parsed.maxPriceDollars > 0
+      ? parsed.maxPriceDollars 
+      : null,
+    numGuests: typeof parsed.numGuests === 'number' && parsed.numGuests > 0 && parsed.numGuests <= 8
+      ? parsed.numGuests 
+      : null,
+    checkIn: parsed.checkIn && /^\d{4}-\d{2}-\d{2}$/.test(parsed.checkIn) 
+      ? parsed.checkIn 
+      : null,
+    checkOut: parsed.checkOut && /^\d{4}-\d{2}-\d{2}$/.test(parsed.checkOut) 
+      ? parsed.checkOut 
+      : null,
+  };
 }
 
 /**

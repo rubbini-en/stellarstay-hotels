@@ -8,10 +8,19 @@ import { parseRoomQuery, generateRoomRecommendations } from '../adapters/ai/olla
 
 const postSchema = z.object({
   roomType: z.enum(['junior', 'king', 'presidential']),
-  checkIn: z.string(),
-  checkOut: z.string(),
-  numGuests: z.number().int().positive(),
+  checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-in date must be in YYYY-MM-DD format'),
+  checkOut: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Check-out date must be in YYYY-MM-DD format'),
+  numGuests: z.number().int().positive().max(8, 'Maximum 8 guests per room'),
   includeBreakfast: z.boolean().default(false),
+}).refine(data => {
+  const checkIn = new Date(data.checkIn);
+  const checkOut = new Date(data.checkOut);
+  
+  // Only validate that check-out is after check-in
+  // Allow past dates for testing purposes
+  return checkOut > checkIn;
+}, {
+  message: "Check-out must be after check-in"
 });
 
 const aiQuerySchema = z.object({

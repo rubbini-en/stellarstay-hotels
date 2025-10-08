@@ -12,7 +12,6 @@ export function getRedis() {
       commandTimeout: 500, // 500ms command timeout
       retryDelayOnFailover: 100,
       enableReadyCheck: false,
-      maxRetriesPerRequest: 2,
     });
     
     // Handle Redis connection errors
