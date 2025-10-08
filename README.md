@@ -106,9 +106,23 @@ curl -s -X POST http://localhost:8000/api/ai/query \
 }
 ```
 
-**Note**: The AI endpoint requires Ollama to be running with the `llama3.2:3b` model. If Ollama is not available or times out, the endpoint returns a `500 AI_SERVICE_ERROR` with graceful degradation.
+**Note**: The AI endpoint requires Ollama to be running with the `llama3.2:1b` model. If Ollama is not available or times out, the endpoint returns a `500 AI_SERVICE_ERROR` with graceful degradation.
 
 **Implementation**: `src/adapters/ai/ollama/client.js` with circuit breaker protection.
+
+### Setup for AI Endpoint
+```bash
+# Install Ollama (if not already installed)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull the required model
+ollama pull llama3.2:1b
+
+# Start Ollama server
+ollama serve
+```
+
+The AI endpoint will work without Ollama but will return error responses. With Ollama running, it provides intelligent room recommendations based on natural language queries.
 
 ## Modes
 

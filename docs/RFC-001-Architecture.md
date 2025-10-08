@@ -103,11 +103,12 @@ External API: 5000ms  (axios timeout)
 - 5xx internal/unexpected errors
 
 ## AI Integration (Bonus)
-- **POST /api/ai/query**: Natural language room search using Ollama
-- **Intent parsing**: Extracts room type, dates, price range, guest count
-- **Room recommendations**: Filtered suggestions based on parsed intent
-- **Circuit breaker protection**: External API calls wrapped with failure handling
-- **Fallback behavior**: Graceful degradation when AI service unavailable
+- **POST /api/ai/query**: Natural language room search using Ollama llama3.2:1b model
+- **Intent parsing**: Extracts room type, dates, price range, guest count from natural language
+- **Room recommendations**: Filtered suggestions based on parsed intent with fallback to all rooms
+- **Circuit breaker protection**: External API calls wrapped with failure handling (10s timeout)
+- **Fallback behavior**: Graceful degradation when AI service unavailable, returns all available rooms
+- **Performance**: ~3-4 second response time for natural language processing
 
 ## Future Work
 - Payment gateway integration with retries + circuit breaker.
